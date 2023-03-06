@@ -13,28 +13,6 @@ direction_vector = {
     "right": (0, +1),
 }
 
-direction_id = {
-     "up": 0,
-    "down": 1,
-    "left": 2,
-    "right": 3,
-}
-
-canon_to_char = {
-    "wall": "w",
-    "computer": "c",
-    "player": "p",
-    "target": "t",
-    "": ".",
-    "targetplayer": "k",
-    "playertarget": "k",
-    "targetcomputer": "m",
-    "computertarget": "m"
-}
-
-
-
-
 def new_game(level_description):
     """
     Given a description of a game state, create and return a game
