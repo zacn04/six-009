@@ -1,178 +1,171 @@
+"""
+6.1010 Spring '23 Lab 3: Bacon Number
+"""
+
 #!/usr/bin/env python3
 
-from cgitb import small
-import pickle
 
 # NO ADDITIONAL IMPORTS ALLOWED!
 
+# we are using BFS. FIFO, QUEUE
+
 
 def transform_data(raw_data):
-    #returns a dictionary of actor IDs and a set of coactors
-    output = {x[0]:set() for x in raw_data} 
-    for item in raw_data:
+    """WE NEED TO KNOW IF ACTORS HAVE ACTED TOGETHER
+    (I.E. A DICT WITH ACTOR KEY AND SET OF ACTOR VALUES)
+    AS WELL AS A DICT WITH FILM KEY AND ACTORS,
+    THEN WE CAN HAVE ACTORS CONNECTING FILMS"""
+    actor_dict = {}
+    film_dict = {}
+    dict_film = {}
+    # generating actor dict and film dict at the same time!
+    for data in raw_data:
         try:
-            output[item[0]].add(item[1])
-        except:
-            pass
+            actor_dict[data[1]].add(data[0])
+        except KeyError:
+            actor_dict[data[1]] = {data[0], data[1]}
         try:
-            output[item[1]].add(item[0])
-        except:
-            pass
-    return output
+            actor_dict[data[0]].add(data[1])
+        except KeyError:
+            actor_dict[data[0]] = {data[1], data[0]}
+        try:
+            film_dict[data[1]].add(data[-1])
+        except KeyError:
+            film_dict[data[1]] = {data[-1]}
+        try:
+            film_dict[data[0]].add(data[-1])
+        except KeyError:
+            film_dict[data[0]] = {data[-1]}
+        if data[-1] not in dict_film:
+            dict_film[data[-1]] = {data[0], data[1]}
+        elif data[-1] in dict_film:
+            dict_film[data[-1]].add(data[0])
+            dict_film[data[-1]].add(data[1])
+    # corrections
+    return actor_dict, film_dict, dict_film
 
 
 def acted_together(transformed_data, actor_id_1, actor_id_2):
-    a = transformed_data
-    return (actor_id_2 in a[actor_id_1]) or (actor_id_1 in a[actor_id_2]) or (actor_id_1 == actor_id_2)
+    return actor_id_1 in transformed_data[0][actor_id_2]
 
 
 def actors_with_bacon_number(transformed_data, n):
-    a = transformed_data
-    output = {4724}
-    ever = set()
-    for i in range(n):
-        dummy = output.copy()
-        for item in dummy:
-            output.remove(item)
-            try:
-                output.update(a[item])
-            except:
-                return set()
-            ever.update({item})
-        output.difference_update(ever)
-        output.discard(4724)
-    return output
+    """
+    Returns a set of actors with the specified bacon number.
 
-def bacon_path(transformed_data, actor_id): #doesnt get the shortest path
-    ''' attempting to implemenet a breadth first search'''
-    a = transformed_data
-    if actor_id not in a:
-        return None
-    parents  = {actor_id:None}
-    visited = set()
-    queue = [actor_id] #the ones we're checking in the current loop, i.e. our current level of the bfs
-    agenda = set()
-    path = []
-            #the ones that we haven't yet committed to queue, but have encountered by virtue of being neighbours to accessed ones 
-    while queue:
-        #print('item in queue', queue[-1], 'queue', queue)
-        neighbours = a[queue[-1]]
-        j = queue.pop()
-        visited.add(j)
-        #print(f'neighbours for item {j}', neighbours)
-        agenda.update(neighbours)
-        #print(f'agenda is {agenda}')
-        #print(f'visited is {visited}')
-        for item in agenda:
-            if item not in visited:
-                parents.update({item:j}) 
-                if item == 4724:
-                        parents.update({item:j})    
-                        b = True
-                        actor = 4724
-                        while b:
-                            #print(f'adding {actor} to the path')
-                            path.append(actor) if actor not in path else b
-                            if path[-1] == actor_id:
-                                return path
-                            #print(a, parents, path)
-                            actor = parents[actor]
-                            if actor == actor_id:
-                                b = False
-                                for item in path:
-                                    try:
-                                        path.append(parents[item]) if parents[item] not in path else b
-                                    except KeyError:
-                                        path.pop()
-                                        return path
-                                return path
-                else:
-                    #print(f'adding {item} to the queue')
-                    queue.append(item)
-            else:
-                continue    
-    return None      
-                #transform agenda into a thing where it finds the path
+            Parameters:
+                    transformed_data (tuple of dictionaries):
+                        A tuple of dictionaries
+                        one of which maps actor IDs to coactor IDs,
+                        the other maps film IDs to actors in said film
+                    n (int) : An integer
+            Returns:
+                    set(start) (a list converted to  a set): The set of actors that
+                    have the nth bacon number
+    """
+    visited = {4724}
+    start = {4724}
+    for _ in range(n):
+        start = next_level(visited, start, transformed_data)
+        if not start:
+            break
+        visited.update(start)
+    return start
+    # IF WE HAVE REACHED OUR TARGET, RETURN QUEUE ^^
+    # ELSE, ADD THIS NODES CHILDREN TO THE QUEUE
+
+
+def next_level(visited, target_set, transformed_data):
+    """
+    Returns a list of actors that have acted with the actors given in "target_list".
+
+            Parameters:
+                    transformed_data (tuple of dictionaries):
+                        A tuple of dictionariess
+                        one of which maps actor IDs to coactor IDs,
+                        the other maps film IDs to actors in said film
+                    n (int) : An integer
+            Returns:
+                    new_level (set): The set of actors that have
+                    acted with the actors in target list
+                    but are not in "visited".
+    """
+    new_level = set()
+    for actor in target_set:
+        children = transformed_data[0][actor]
+        for child in children:
+            if child not in visited:
+                new_level.add(child)
+    return new_level
+
+
+def bacon_path(transformed_data, actor_id):
+    return actor_path(transformed_data, 4724, lambda x: x == actor_id)
+
+
 def actor_to_actor_path(transformed_data, actor_id_1, actor_id_2):
-    ''' attempting to implemenet a breadth first search'''
-    a = transformed_data
-    if actor_id_2 not in a or actor_id_1 not in a:
-        return None
-    parents  = {actor_id_1:None}
-    visited = set()
-    queue = [actor_id_1] #the ones we're checking in the current loop, i.e. our current level of the bfs
-    agenda = set()
-    path = []
-            #the ones that we haven't yet committed to queue, but have encountered by virtue of being neighbours to accessed ones 
-    while queue:
-        #print('item in queue', queue[-1], 'queue', queue)
-        neighbours = a[queue[-1]]
-        j = queue.pop()
-        visited.add(j)
-        #print(f'neighbours for item {j}', neighbours)
-        agenda.update(neighbours)
-        #print(f'agenda is {agenda}')
-        #print(f'visited is {visited}')
-        for item in agenda:
-            if item not in visited:
-                parents.update({item:j})
-                if item == actor_id_2:
-                        parents.update({item:j})
-                        b = True
-                        actor = actor_id_2
-                        while b:
-                            #print(f'adding {actor} to the path')
-                            path.append(actor) if actor not in path else b
-                            if path[-1] == actor_id_1:
-                                return path
-                            #print(a, parents, path)
-                            actor = parents[actor]
-                            if actor == actor_id_1:
-                                b = False
-                                for item in path:
-                                    try:
-                                        path.append(parents[item]) if parents[item] not in path else b
-                                    except KeyError:
-                                        path.pop()
-                                        return path
-                                return path
-                else:
-                    #print(f'adding {item} to the queue')
-                    queue.append(item) 
-            else:
-                continue   
-    return None   
+    return actor_path(transformed_data, actor_id_1, lambda x: x == actor_id_2)
 
 
 def actor_path(transformed_data, actor_id_1, goal_test_function):
-    raise NotImplementedError("Implement me!")
+    """
+    Returns an list of actor IDs that form a path from the actor with
+    "actor_id_1" to those who satisfy .
+
+            Parameters:
+                    transformed_data (tuple of dictionaries):
+                        A tuple of dictionariess
+                        one of which maps actor IDs to costar IDs,
+                        an other maps film IDs to actor ID in said film
+                        and a third that maps actor IDs to film IDs
+                    actor_id_1 (int) : An integer that represents the
+                        ID of this actor
+                    goal_test_function (func) : A function that when applied
+                        to a group of actors, will return True,
+                        used for the BFS implementation
+            Returns:
+                    path (list): The shortest list of actors from actor_id_1 to any one
+                    that fits the goal_test_function.
+    """
+    visited = set()
+    queue = [actor_id_1]  # INITIALISED AT BACON - CAN GENERALISE.
+    idmap = {}
+    while queue:
+        curr = queue.pop(0)
+        # visited.add(curr)
+        if goal_test_function(curr):
+            # INITIALISE MAP BACK
+            path = []
+            while curr != actor_id_1:
+                path.append(curr)
+                curr = idmap[curr]
+            return [actor_id_1] + path[::-1]
+        for neighbour in transformed_data[0][curr]:
+            if neighbour not in visited:
+                visited.add(neighbour)
+                queue.append(neighbour)
+                idmap[neighbour] = curr
 
 
 def actors_connecting_films(transformed_data, film1, film2):
-    raise NotImplementedError("Implement me!")
+    paths = [
+        actor_path(transformed_data, x, lambda b: b in transformed_data[2][film2])
+        for x in transformed_data[2][film1]
+    ]
+    return min(paths, key=len) if paths else None
+
+
+def movie_match(transformed_data, actor_id_1, actor_id_2):
+    return transformed_data[1][actor_id_1].intersection(transformed_data[1][actor_id_2])
+
+
+def movie_path(transformed_data, actor_id_1, actor_id_2):
+    pathactor = actor_to_actor_path(transformed_data, actor_id_1, actor_id_2)
+    path = []
+    for i in range((len(pathactor)) - 1):
+        path.extend(movie_match(transformed_data, pathactor[i], pathactor[i + 1]))
+    return path
 
 
 if __name__ == "__main__":
-    with open("resources/small.pickle", "rb") as f:
-        smalldb = pickle.load(f)
-    with open("resources/tiny.pickle", 'rb') as g:
-        tiny = pickle.load(g) 
-    with open("resources/large.pickle", 'rb') as h:
-        large = pickle.load(h)
-    with open("resources/names.pickle", 'rb') as i:
-        names = pickle.load(i)
-    a = transform_data(smalldb)
-    #print(a[4724])
-    x = actors_with_bacon_number(transform_data(large), 6)
-    '''b = {x:y for y,x in zip(names.keys(), names.values())}
-    #print(b)
-    something = set()
-    for item in x:
-        print()
-        something.add(b[item])
-    #print(transform_data(large))
-    print(bacon_path(transform_data(smalldb), 1640))'''
-    # additional code here will be run only when lab.py is invoked directly
-    # (not when imported from test.py), so this is a good place to put code
-    # used, for example, to generate the results for the online questions.
-    
+    pass
